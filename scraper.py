@@ -5,10 +5,9 @@ Roda TODAS as fontes registradas em fontes/COLETORES, junta as cotacoes e
 CONSOLIDA por praca: para cada municipio/UF calcula o valor de mercado
 (mediana entre as fontes), a amplitude (min-max) e quantas fontes cotaram.
 
-A coleta acontece de duas formas (redundancia proposital):
-  - numa thread periodica em segundo plano (iniciar());
-  - sob demanda, disparada pela 1a requisicao (caso a thread nao rode no host).
-Cada coleta tem um TETO DE TEMPO rigido para nunca travar em "carregando".
+A coleta roda DIRETO na requisicao (sincrona), com cache: se o cache esta
+fresco, devolve na hora; se esta velho, coleta antes de responder. Nao depende
+de threads em segundo plano (que nao executam de forma confiavel sob gunicorn).
 """
 
 import threading
@@ -18,20 +17,17 @@ from statistics import median
 
 from fontes import COLETORES
 
-# De quanto em quanto tempo re-coletar (segundos).
+# Por quanto tempo o cache e' considerado fresco (segundos).
 INTERVALO_COLETA = 120
-
-# Teto de tempo por fonte (segundos). Se estourar, a fonte e' abandonada.
-COLETA_TIMEOUT = 30
 
 # Ordem em que os produtos aparecem no painel.
 ORDEM_PRODUTOS = ["milho", "soja", "sorgo"]
 
 
 # ---------------------------------------------------------------------------
-# Cache compartilhado com o Flask
+# Cache
 # ---------------------------------------------------------------------------
-_lock = threading.Lock()
+_lock = threading.Lock()          # protege o dicionario _cache
 _scrape_lock = threading.Lock()   # garante 1 coleta por vez
 _cache = {
     "status": "carregando",     # carregando | ok | erro
@@ -43,26 +39,6 @@ _cache = {
     "produtos": {},
     "estados": [],
 }
-
-
-def _run_com_timeout(func, timeout):
-    """Executa func() numa thread e ABANDONA se passar de `timeout` segundos."""
-    caixa = {}
-
-    def alvo():
-        try:
-            caixa["v"] = func()
-        except Exception as e:  # noqa: BLE001
-            caixa["e"] = e
-
-    t = threading.Thread(target=alvo, daemon=True)
-    t.start()
-    t.join(timeout)
-    if t.is_alive():
-        raise TimeoutError(f"coleta excedeu {timeout}s (host provavelmente bloqueado)")
-    if "e" in caixa:
-        raise caixa["e"]
-    return caixa["v"]
 
 
 def _consolidar(cotacoes, indicadores):
@@ -114,7 +90,7 @@ def _consolidar(cotacoes, indicadores):
 
 
 def _ciclo_coleta():
-    """Uma rodada: coleta de todas as fontes (com teto de tempo) e atualiza o cache."""
+    """Uma rodada: coleta de todas as fontes e atualiza o cache. SINCRONA."""
     print("[scraper] iniciando ciclo de coleta...", flush=True)
     todas = []
     indicadores = {}
@@ -123,7 +99,7 @@ def _ciclo_coleta():
     for modulo in COLETORES:
         nome = getattr(modulo, "FONTE", str(modulo))
         try:
-            cotacoes, indics = _run_com_timeout(modulo.coletar, COLETA_TIMEOUT)
+            cotacoes, indics = modulo.coletar()
             todas.extend(cotacoes)
             for prod, ind in indics.items():
                 indicadores.setdefault(prod, ind)
@@ -151,10 +127,17 @@ def _ciclo_coleta():
     print(f"[scraper] ciclo terminou: {len(todas)} cotacoes no total", flush=True)
 
 
-def _coletar_seguro():
-    """Roda um ciclo protegido por lock (evita coletas simultaneas)."""
+def _precisa_atualizar():
+    ts = _cache.get("atualizado_ts")
+    return ts is None or (time.time() - ts) > INTERVALO_COLETA
+
+
+def _atualizar_se_preciso():
+    """Coleta (sincrona) se o cache estiver velho. Um por vez; os demais seguem."""
+    if not _precisa_atualizar():
+        return
     if not _scrape_lock.acquire(blocking=False):
-        return  # ja tem uma coleta rolando
+        return  # ja tem alguem coletando; devolve o cache atual
     try:
         _ciclo_coleta()
     except Exception as e:  # noqa: BLE001
@@ -167,24 +150,22 @@ def _coletar_seguro():
 
 
 def _loop():
+    """Coleta periodica em segundo plano (best-effort; nao e' a via principal)."""
     while True:
-        _coletar_seguro()
-        time.sleep(INTERVALO_COLETA)
+        try:
+            _atualizar_se_preciso()
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(30)
 
 
 def iniciar():
-    print("[scraper] thread de coleta iniciada", flush=True)
+    print("[scraper] thread de coleta iniciada (best-effort)", flush=True)
     threading.Thread(target=_loop, daemon=True).start()
 
 
-def _precisa_atualizar():
-    ts = _cache.get("atualizado_ts")
-    return ts is None or (time.time() - ts) > INTERVALO_COLETA
-
-
 def get_dados():
-    """Devolve o cache. Se estiver velho/vazio, dispara uma coleta em 2o plano."""
-    if _precisa_atualizar() and not _scrape_lock.locked():
-        threading.Thread(target=_coletar_seguro, daemon=True).start()
+    """Via PRINCIPAL: coleta sob demanda (sincrona) e devolve o cache."""
+    _atualizar_se_preciso()
     with _lock:
         return dict(_cache)

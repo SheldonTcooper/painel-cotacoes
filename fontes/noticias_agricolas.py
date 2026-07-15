@@ -38,7 +38,7 @@ HEADERS = {
 }
 
 # (conexao, leitura) em segundos -- tupla garante que NUNCA trava eternamente.
-TIMEOUT = (10, 20)
+TIMEOUT = (8, 15)
 
 
 def _get_soup(url):
