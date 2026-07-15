@@ -19,14 +19,30 @@ PRODUTOS = {
     "sorgo": ("https://www.noticiasagricolas.com.br/cotacoes/sorgo", 60),
 }
 
+# Cabecalhos de um navegador real -- ajuda a passar por protecoes (Cloudflare)
+# quando a requisicao parte de um servidor (datacenter).
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+              "image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
 }
+
+# (conexao, leitura) em segundos -- tupla garante que NUNCA trava eternamente.
+TIMEOUT = (10, 20)
 
 
 def _get_soup(url):
-    resp = requests.get(url, headers=HEADERS, timeout=25)
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
     resp.raise_for_status()
     return BeautifulSoup(resp.text, "html.parser")
 
@@ -39,7 +55,8 @@ def coletar():
     for produto, (url, peso) in PRODUTOS.items():
         try:
             soup = _get_soup(url)
-        except Exception:
+        except Exception as e:
+            print(f"[NA] falha ao coletar {produto}: {type(e).__name__}: {e}", flush=True)
             continue  # esse produto falhou; segue os outros
 
         for tabela in soup.find_all("table"):

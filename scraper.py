@@ -87,6 +87,7 @@ def _consolidar(cotacoes, indicadores):
 
 def _ciclo_coleta():
     """Uma rodada: coleta de todas as fontes e atualiza o cache."""
+    print("[scraper] iniciando ciclo de coleta...", flush=True)
     todas = []
     indicadores = {}
     fontes_ok = []
@@ -99,18 +100,26 @@ def _ciclo_coleta():
                 indicadores.setdefault(prod, ind)
             if cotacoes:
                 fontes_ok.append(modulo.FONTE)
+            print(f"[scraper] {getattr(modulo, 'FONTE', modulo)}: {len(cotacoes)} cotacoes", flush=True)
         except Exception as e:
-            print(f"[fonte falhou] {getattr(modulo, 'FONTE', modulo)}: {e}")
+            print(f"[fonte falhou] {getattr(modulo, 'FONTE', modulo)}: {e}", flush=True)
 
     produtos, estados = _consolidar(todas, indicadores)
 
     with _lock:
-        _cache["status"] = "ok"
         _cache["atualizado_em"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         _cache["produtos"] = produtos
         _cache["estados"] = estados
         _cache["fontes_ativas"] = fontes_ok
-        _cache["erro"] = None
+        if todas:
+            _cache["status"] = "ok"
+            _cache["erro"] = None
+        else:
+            # nenhuma fonte retornou dados -> sinaliza em vez de travar em "carregando"
+            _cache["status"] = "erro"
+            _cache["erro"] = ("Nenhuma cotação coletada. As fontes podem estar "
+                              "bloqueando o acesso a partir do servidor.")
+    print(f"[scraper] ciclo terminou: {len(todas)} cotacoes no total", flush=True)
 
 
 def _loop():
@@ -125,6 +134,7 @@ def _loop():
 
 
 def iniciar():
+    print("[scraper] thread de coleta iniciada", flush=True)
     threading.Thread(target=_loop, daemon=True).start()
 
 
