@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Cotações Agro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-titulo">
+      <span class="logo">🌾</span>
+      <div>
+        <h1>Painel de Cotações Agro</h1>
+        <p class="sub">Milho · Soja · Sorgo — valor de mercado por praça</p>
+        <p class="fontes" id="fontes-ativas">Fontes: —</p>
+      </div>
+    </div>
+    <div class="topo-status">
+      <span id="pulso" class="pulso"></span>
+      <div>
+        <div id="status-txt">Carregando…</div>
+        <div class="atualizado">Atualizado: <span id="atualizado">—</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="controles">
+    <div class="grupo">
+      <label class="rotulo">Produtos</label>
+      <div id="filtro-produtos" class="chips"></div>
+    </div>
+    <div class="grupo">
+      <label class="rotulo" for="filtro-uf">Estado (região)</label>
+      <select id="filtro-uf">
+        <option value="TODOS">Todos os estados</option>
+      </select>
+    </div>
+    <div class="grupo">
+      <label class="rotulo" for="busca">Buscar praça</label>
+      <input id="busca" type="text" placeholder="ex.: Sorriso, Rio Verde…">
+    </div>
+  </section>
+
+  <main id="cards" class="cards"></main>
+
+  <!-- Calculadora de frete -->
+  <section class="frete">
+    <h2>🚚 Calculadora de frete / margem</h2>
+    <p class="frete-obs">Usa o <strong>preço médio</strong> do 1º produto selecionado, já filtrado pela região acima.</p>
+    <div class="frete-grid">
+      <label>Produto na carga (kg)<input id="f-kg" type="number" value="8000"></label>
+      <label>Distância só ida (km)<input id="f-km" type="number" value="450"></label>
+      <label>Diesel (R$/L)<input id="f-diesel" type="number" step="0.1" value="6"></label>
+      <label>Autonomia (km/L)<input id="f-auton" type="number" step="0.1" value="5"></label>
+      <label class="check"><input id="f-idavolta" type="checkbox" checked> Contar volta (vazio)</label>
+    </div>
+    <div id="frete-resultado" class="frete-resultado"></div>
+  </section>
+
+  <footer class="rodape">
+    Fonte: Notícias Agrícolas · Atualização automática a cada 2 min · Uso informativo
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
