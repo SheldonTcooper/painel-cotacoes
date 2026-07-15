@@ -133,13 +133,17 @@ def _precisa_atualizar():
 
 
 def _atualizar_se_preciso():
-    """Coleta (sincrona) se o cache estiver velho. Um por vez; os demais seguem."""
+    """Coleta (sincrona) se o cache estiver velho. SEM threads de fundo."""
     if not _precisa_atualizar():
         return
+    # non-blocking: se ja tem uma requisicao coletando, os demais devolvem o
+    # cache atual em vez de esperar. Como nao ha thread de fundo, a 1a
+    # requisicao SEMPRE consegue a trava e coleta de verdade.
     if not _scrape_lock.acquire(blocking=False):
-        return  # ja tem alguem coletando; devolve o cache atual
+        return
     try:
-        _ciclo_coleta()
+        if _precisa_atualizar():  # confere de novo apos pegar a trava
+            _ciclo_coleta()
     except Exception as e:  # noqa: BLE001
         with _lock:
             if not _cache["produtos"]:
@@ -149,23 +153,15 @@ def _atualizar_se_preciso():
         _scrape_lock.release()
 
 
-def _loop():
-    """Coleta periodica em segundo plano (best-effort; nao e' a via principal)."""
-    while True:
-        try:
-            _atualizar_se_preciso()
-        except Exception:  # noqa: BLE001
-            pass
-        time.sleep(30)
-
-
 def iniciar():
-    print("[scraper] thread de coleta iniciada (best-effort)", flush=True)
-    threading.Thread(target=_loop, daemon=True).start()
+    """Mantido por compatibilidade. NAO usa thread de fundo de proposito:
+    threads nao rodam de forma confiavel sob gunicorn e travavam a coleta.
+    A coleta acontece sob demanda em get_dados()."""
+    print("[scraper] coleta sob demanda (sem thread de fundo)", flush=True)
 
 
 def get_dados():
-    """Via PRINCIPAL: coleta sob demanda (sincrona) e devolve o cache."""
+    """Via UNICA: coleta sob demanda (sincrona) e devolve o cache."""
     _atualizar_se_preciso()
     with _lock:
         return dict(_cache)
