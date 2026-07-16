@@ -13,6 +13,9 @@ Fontes de dados ativas:
 Quando a mesma praça aparece em mais de uma fonte, o painel consolida pela
 **mediana** e mostra o spread e o detalhe de cada fonte.
 
+> Avaliação completa do projeto (arquitetura, decisões, riscos, roadmap e
+> runbook): [ASSESSMENT.md](ASSESSMENT.md)
+
 ## Rodar localmente
 
 ```bash
