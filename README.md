@@ -4,7 +4,14 @@ Painel web em tempo real de cotações de **milho, soja e sorgo** por praça,
 com filtro por região (estado), consolidação de preço por praça e calculadora
 de frete/margem.
 
-Fonte de dados: **Notícias Agrícolas** (coleta via HTTP, sem navegador).
+Fontes de dados ativas:
+- **Notícias Agrícolas** — scraping via HTTP (sem navegador); preços diários por praça.
+- **CONAB (dados abertos)** — arquivo público oficial de preços semanais por
+  município (`PrecosSemanalMunicipio.txt` do Portal de Informações Agropecuárias);
+  nível de comercialização registrado em cada cotação (atacado/produtor).
+
+Quando a mesma praça aparece em mais de uma fonte, o painel consolida pela
+**mediana** e mostra o spread e o detalhe de cada fonte.
 
 ## Rodar localmente
 
@@ -22,6 +29,7 @@ scraper.py           # coleta em segundo plano + consolidação por praça
 fontes/              # sistema de fontes plugáveis
   base.py            #   formato padrão (Cotacao) + parsers
   noticias_agricolas.py  # coletor (requests + BeautifulSoup)
+  conab.py           #   coletor da API de dados abertos da CONAB
   __init__.py        #   registro de fontes ativas
 templates/index.html # página
 static/style.css     # estilo
@@ -43,6 +51,8 @@ Observações:
 - O plano free "hiberna" após ~15 min sem acesso; o primeiro acesso seguinte
   demora alguns segundos para acordar e recoletar.
 - A coleta roda a cada 2 min (ajustável em `scraper.py`, `INTERVALO_COLETA`).
+- O arquivo da CONAB é semanal (~26 MB); o coletor guarda o resultado por
+  6 h (`fontes/conab.py`, `CACHE_TTL`) para não baixá-lo a cada ciclo.
 
 ## Adicionar novas fontes (ex.: API oficial no futuro)
 

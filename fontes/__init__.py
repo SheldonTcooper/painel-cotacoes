@@ -11,16 +11,16 @@ COLETORES = lista de modulos ativos. Cada um precisa expor:
     Pronto: o scraper passa a consolidar essa fonte junto com as demais.
 
 Fontes mapeadas mas ainda NAO ativas (precisam de API/acesso especial):
-    - CEPEA/ESALQ ...... indicador de referencia; site bloqueia robos (Cloudflare).
-    - CONAB ............ precos oficiais; site protegido por reCAPTCHA.
+    - CEPEA/ESALQ ...... indicador de referencia; site bloqueia robos (Cloudflare)
+                         e as series no Ipeadata sao mensais/inativas.
     - Canal Rural ...... bloqueado (Cloudflare).
     - Agrolink ......... preco publicado como imagem (exigiria OCR).
 """
 
-from . import noticias_agricolas
+from . import conab, noticias_agricolas
 
 COLETORES = [
-    noticias_agricolas,
-    # cepea,      # <- plugar quando houver acesso/API
-    # conab,      # <- plugar quando houver acesso/API
+    noticias_agricolas,  # scraping (precos diarios por praca)
+    conab,               # dados abertos oficiais (semanal, por municipio)
+    # cepea,             # <- plugar quando houver acesso/API
 ]

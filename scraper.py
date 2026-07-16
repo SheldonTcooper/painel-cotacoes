@@ -41,11 +41,30 @@ _cache = {
 }
 
 
+def _resolver_uf(grupos):
+    """Funde pracas sem UF ('N/D') com a praca de mesmo municipio quando so'
+    existe UMA candidata com UF definida. Ex.: o Noticias Agricolas as vezes
+    publica 'Dourados' sem UF; se a CONAB tem 'Dourados/MS' (e nenhum outro
+    estado tem Dourados), as duas viram a mesma praca."""
+    com_uf = {}  # (produto, slug) -> [ufs]
+    for (produto, uf, slug) in grupos:
+        if uf != "N/D":
+            com_uf.setdefault((produto, slug), []).append(uf)
+
+    for chave in [k for k in grupos if k[1] == "N/D"]:
+        produto, _nd, slug = chave
+        candidatas = com_uf.get((produto, slug), [])
+        if len(candidatas) == 1:
+            grupos[(produto, candidatas[0], slug)].extend(grupos.pop(chave))
+    return grupos
+
+
 def _consolidar(cotacoes, indicadores):
     """Agrupa cotacoes por (produto, praca) e calcula o valor consolidado."""
     grupos = {}
     for c in cotacoes:
         grupos.setdefault((c.produto,) + c.chave, []).append(c)
+    grupos = _resolver_uf(grupos)
 
     produtos = {}
     estados = set()
