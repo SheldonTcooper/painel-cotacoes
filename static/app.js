@@ -217,7 +217,11 @@ async function atualizar() {
     setStatus("erro", "Erro na coleta: " + (dados.erro || ""));
   } else {
     setStatus("ok", "Ao vivo");
-    document.getElementById("atualizado").textContent = dados.atualizado_em || "—";
+    // atualizado_ts (epoch) formatado no fuso do NAVEGADOR — o relogio do
+    // servidor (Render) e' UTC, entao o texto pronto viria 3h adiantado.
+    document.getElementById("atualizado").textContent = dados.atualizado_ts
+      ? new Date(dados.atualizado_ts * 1000).toLocaleString("pt-BR")
+      : (dados.atualizado_em || "—");
     document.getElementById("fontes-ativas").textContent =
       "Fontes: " + ((dados.fontes_ativas || []).join(" · ") || "—");
     if (selecionados.size === 0) listaProdutos().forEach((p) => selecionados.add(p));
